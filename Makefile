@@ -9,14 +9,14 @@ test:
 	cargo test
 
 install: build
-	install -Dm755 target/release/notification-badge $(PREFIX)/bin/notification-badge
-	install -Dm644 notification-badge.service $(HOME)/.config/systemd/user/notification-badge.service
+	install -Dm755 target/release/plasma-task-manager-notifications $(PREFIX)/bin/plasma-task-manager-notifications
+	install -Dm644 plasma-task-manager-notifications.service $(HOME)/.config/systemd/user/plasma-task-manager-notifications.service
 
 uninstall:
-	rm -f $(PREFIX)/bin/notification-badge
-	rm -f $(HOME)/.config/systemd/user/notification-badge.service
-	-systemctl --user stop notification-badge.service 2>/dev/null
-	-systemctl --user disable notification-badge.service 2>/dev/null
+	rm -f $(PREFIX)/bin/plasma-task-manager-notifications
+	rm -f $(HOME)/.config/systemd/user/plasma-task-manager-notifications.service
+	-systemctl --user stop plasma-task-manager-notifications.service 2>/dev/null
+	-systemctl --user disable plasma-task-manager-notifications.service 2>/dev/null
 
 clean:
 	cargo clean

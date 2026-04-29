@@ -1,7 +1,7 @@
 //! Integration test: simulate a full notification lifecycle using AppMap + DbusParser together,
 //! feeding realistic dbus-monitor output through the parser and processing results with AppMap.
 
-use notification_badge::{AppMap, DbusMessage, DbusParser};
+use plasma_task_manager_notifications::{AppMap, DbusMessage, DbusParser};
 use std::collections::HashMap;
 
 fn setup_app_map() -> AppMap {

@@ -1,5 +1,5 @@
 use log::{error, info, warn};
-use notification_badge::{AppMap, BadgeEmitter, DbusMessage, DbusParser};
+use plasma_task_manager_notifications::{AppMap, BadgeEmitter, DbusMessage, DbusParser};
 use std::io::BufRead;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -33,7 +33,7 @@ fn install_signal_handler(app_map: &Arc<Mutex<AppMap>>) {
 }
 
 fn run_initial_discovery(app_map: &Arc<Mutex<AppMap>>) {
-    let new_map = notification_badge::discover_apps();
+    let new_map = plasma_task_manager_notifications::discover_apps();
     let mut map = app_map.lock().unwrap();
     if map.update_patterns(new_map) {
         log_discovered(&map);
@@ -46,7 +46,7 @@ fn spawn_discovery_thread(app_map: &Arc<Mutex<AppMap>>) {
     let app_map_disc = Arc::clone(app_map);
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(DISCOVERY_INTERVAL));
-        let new_map = notification_badge::discover_apps();
+        let new_map = plasma_task_manager_notifications::discover_apps();
         let mut map = app_map_disc.lock().unwrap();
         if map.update_patterns(new_map) {
             log_discovered(&map);

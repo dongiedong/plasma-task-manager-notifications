@@ -34,14 +34,14 @@ This installs the binary to `~/.local/bin/` and the systemd service to `~/.confi
 ### Enable at login
 
 ```bash
-systemctl --user enable --now notification-badge.service
+systemctl --user enable --now plasma-task-manager-notifications.service
 ```
 
 ### Check status
 
 ```bash
-systemctl --user status notification-badge.service
-journalctl --user -u notification-badge.service -f
+systemctl --user status plasma-task-manager-notifications.service
+journalctl --user -u plasma-task-manager-notifications.service -f
 ```
 
 ## Uninstall
@@ -55,7 +55,7 @@ make uninstall
 Run manually (logs to stderr):
 
 ```bash
-notification-badge
+plasma-task-manager-notifications
 ```
 
 Test with a sample notification:
