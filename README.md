@@ -1,6 +1,6 @@
 # Plasma Task Manager Notifications
 
-Taskbar badge notifications for KDE Plasma 6. Dynamically discovers running applications via KWin, monitors desktop notifications via D-Bus, and sets badge counts on taskbar icons using the Unity Launcher API. No hardcoded app list needed.
+Taskbar badge notifications for KDE Plasma 6. Dynamically discovers running applications via KWin, monitors desktop notifications via D-Bus, and sets badge counts on taskbar icons using the Unity Launcher API.
 
 ## How it works
 
