@@ -24,8 +24,8 @@ Taskbar badge notifications for KDE Plasma 6. Dynamically discovers running appl
 ## Install
 
 ```bash
-git clone https://github.com/example/notification-badge.git
-cd notification-badge
+git clone ssh://git@git.nmm.ee/asko/plasma-task-manager-notifications.git
+cd plasma-task-manager-notifications
 make install
 ```
 
