@@ -1,0 +1,17 @@
+[package]
+name = "notification-badge"
+version = "0.1.0"
+edition = "2021"
+description = "Taskbar badge notifications for KDE Plasma 6"
+license = "MIT"
+readme = "README.md"
+keywords = ["kde", "plasma", "notifications", "taskbar", "badge"]
+categories = ["os::linux-apis"]
+
+[dependencies]
+regex = "1"
+log = "0.4"
+env_logger = "0.11"
+libc = "0.2"
+
+[dev-dependencies]

@@ -1,0 +1,12 @@
+[Unit]
+Description=Notification Badge Monitor for KDE Taskbar
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/notification-badge
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
