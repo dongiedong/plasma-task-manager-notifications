@@ -273,3 +273,40 @@ signal time=1700000000.400 sender=:1.1 -> destination=(null destination) serial=
         ("application://org.mozilla.firefox.desktop".into(), 1)
     );
 }
+
+/// Google Chrome: app_name "Google Chrome" must match pattern "google-chrome" (space vs hyphen).
+#[test]
+fn test_google_chrome_space_vs_hyphen() {
+    let mut map = AppMap::new();
+    let mut patterns = HashMap::new();
+    patterns.insert(
+        "google-chrome".into(),
+        "application://google-chrome.desktop".into(),
+    );
+    map.update_patterns(patterns);
+
+    let stream = r#"method call time=1700000000.000 sender=:1.100 -> destination=:1.5 serial=500 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=Notify
+   string "Google Chrome"
+   uint32 0
+   string ""
+   string "New message"
+   string ""
+method return time=1700000000.100 sender=:1.5 -> destination=:1.100 serial=600 reply_serial=500
+   uint32 55
+signal time=1700000001.000 sender=:1.5 -> destination=(null destination) serial=700 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=NotificationClosed
+   uint32 55
+   uint32 2
+"#;
+
+    let updates = process_stream(stream, &mut map);
+
+    assert_eq!(updates.len(), 2);
+    assert_eq!(
+        updates[0],
+        ("application://google-chrome.desktop".into(), 1)
+    );
+    assert_eq!(
+        updates[1],
+        ("application://google-chrome.desktop".into(), 0)
+    );
+}

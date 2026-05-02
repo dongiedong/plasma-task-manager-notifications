@@ -1,6 +1,6 @@
 [package]
 name = "plasma-task-manager-notifications"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Taskbar badge notifications for KDE Plasma 6"
 license = "MIT"

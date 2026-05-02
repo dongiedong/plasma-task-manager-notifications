@@ -14,6 +14,14 @@ pub struct AppMap {
     pending: HashMap<u64, String>,
 }
 
+/// Normalize separators (hyphens, underscores, spaces) to a single form
+/// so that "google-chrome", "google chrome", and "google_chrome" all match.
+fn normalize_separators(s: &str) -> String {
+    s.chars()
+        .map(|c| if matches!(c, '-' | '_' | ' ') { '-' } else { c })
+        .collect()
+}
+
 impl AppMap {
     pub fn new() -> Self {
         Self::default()
@@ -38,9 +46,10 @@ impl AppMap {
     }
 
     fn find_pattern(&self, lower: &str) -> Option<String> {
+        let normalized = normalize_separators(lower);
         self.patterns
             .iter()
-            .find(|(pattern, _)| lower.contains(pattern.as_str()))
+            .find(|(pattern, _)| normalized.contains(&normalize_separators(pattern)))
             .map(|(_, desktop_id)| desktop_id.clone())
     }
 
@@ -270,6 +279,33 @@ mod tests {
         assert_eq!(ids.len(), 2);
         assert!(ids.contains(&"application://org.mozilla.firefox.desktop".to_string()));
         assert!(ids.contains(&"application://com.slack.Slack.desktop".to_string()));
+    }
+
+    #[test]
+    fn test_match_app_normalizes_separators() {
+        let mut am = AppMap::new();
+        let mut m = HashMap::new();
+        // KWin reports "google-chrome" as the desktopFile
+        m.insert(
+            "google-chrome".into(),
+            "application://google-chrome.desktop".into(),
+        );
+        am.update_patterns(m);
+
+        // Chrome sends app_name "Google Chrome" (space, not hyphen)
+        assert_eq!(
+            am.match_app(&["Google Chrome"]),
+            Some("application://google-chrome.desktop".into())
+        );
+        // Also match with underscore or exact hyphen
+        assert_eq!(
+            am.match_app(&["google_chrome"]),
+            Some("application://google-chrome.desktop".into())
+        );
+        assert_eq!(
+            am.match_app(&["google-chrome"]),
+            Some("application://google-chrome.desktop".into())
+        );
     }
 
     #[test]
