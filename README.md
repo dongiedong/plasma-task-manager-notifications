@@ -29,7 +29,7 @@ cd plasma-task-manager-notifications
 make install
 ```
 
-This installs the binary to `~/.local/bin/` and the systemd service to `~/.config/systemd/user/`.
+This installs the binary to `~/.local/bin/`, the systemd service to `~/.config/systemd/user/`, and a small KWin script used to detect when applications regain focus.
 
 ### Enable at login
 
@@ -61,7 +61,7 @@ plasma-task-manager-notifications
 Test with a sample notification:
 
 ```bash
-notify-send --app-name=firefox "Test" "Badge should appear"
+notify-send --app-name=firefox "Test" "Badge should remain until Firefox regains focus"
 ```
 
 ## Development
@@ -82,16 +82,19 @@ The crate is split into four modules:
 | `app_map` | Tracks discovered apps, pending notifications, and active badge counts |
 | `discovery` | Queries KWin D-Bus interfaces to discover running apps and their desktop file IDs |
 | `badge` | Emits Unity LauncherEntry Update signals via `gdbus` |
+| KWin helper script | Reports application focus changes to the daemon over D-Bus |
 
 All modules are designed for testability — external D-Bus calls are injected as function parameters in tests.
+
+### Persistent badges
+
+Notification badges remain visible after Plasma's notification popup expires or is dismissed. A small KWin helper script listens for application focus changes and reports the focused application's desktop file ID to the daemon over D-Bus. When the corresponding application regains focus, its badge is cleared.
 
 ## Known limitations
 
 - Processes all session bus traffic (unfiltered monitor). Lightweight in practice but could theoretically be optimized with `BecomeMonitor` D-Bus API.
 - Only badges apps that currently have an open window. Pinned taskbar icons without a running instance won't be badged.
 - If two apps share the same last dot-segment in their desktop file ID, they would collide in the match map. Unlikely in practice.
-- Firefox web app notifications all badge under the single Firefox icon.
-- Notifications that expire via timeout also emit `NotificationClosed`, so badges clear when notifications auto-dismiss.
 
 ## License
 

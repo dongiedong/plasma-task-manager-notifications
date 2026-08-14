@@ -89,6 +89,24 @@ impl AppMap {
         self.active.get(desktop_id).map_or(0, |s| s.len())
     }
 
+    /// Clear every remembered notification for one application.
+    /// Used when the application's window receives focus.
+    pub fn clear_app(&mut self, desktop_id: &str) -> bool {
+        let Some(set) = self.active.get_mut(desktop_id) else {
+            return false;
+        };
+
+        if set.is_empty() {
+            return false;
+        }
+
+        for nid in set.drain() {
+            self.notif_to_app.remove(&nid);
+        }
+
+        true
+    }
+
     /// Return all unique desktop_ids that have been registered (from patterns).
     pub fn all_desktop_ids(&self) -> Vec<String> {
         let mut seen = HashSet::new();
@@ -252,6 +270,37 @@ mod tests {
         let mut different = HashMap::new();
         different.insert("new".into(), "application://new.desktop".into());
         assert!(am.update_patterns(different));
+    }
+
+    #[test]
+    fn test_clear_app() {
+        let mut am = AppMap::new();
+        am.update_patterns(sample_map());
+
+        let firefox = "application://org.mozilla.firefox.desktop";
+        let slack = "application://com.slack.Slack.desktop";
+
+        am.record_notify(100, 0, firefox);
+        am.resolve_reply(100, 42);
+        am.record_notify(101, 0, firefox);
+        am.resolve_reply(101, 43);
+
+        am.record_notify(102, 0, slack);
+        am.resolve_reply(102, 44);
+
+        assert_eq!(am.count(firefox), 2);
+        assert_eq!(am.count(slack), 1);
+
+        assert!(am.clear_app(firefox));
+        assert_eq!(am.count(firefox), 0);
+        assert_eq!(am.count(slack), 1);
+
+        // Notification IDs cleared with the app must no longer be tracked.
+        assert_eq!(am.notification_closed(42), None);
+        assert_eq!(am.notification_closed(43), None);
+
+        // Clearing an already-clear app should be a no-op.
+        assert!(!am.clear_app(firefox));
     }
 
     #[test]

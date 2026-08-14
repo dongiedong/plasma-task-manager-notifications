@@ -5,6 +5,7 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use zbus::interface;
 
 /// How often (seconds) to re-scan open windows and rebuild the app map.
 const DISCOVERY_INTERVAL: u64 = 30;
@@ -19,6 +20,7 @@ fn main() {
     install_signal_handler(&app_map);
     run_initial_discovery(&app_map);
     spawn_discovery_thread(&app_map);
+    spawn_focus_dbus_thread(&app_map);
     run_monitor_loop(&app_map);
 }
 
@@ -50,6 +52,69 @@ fn spawn_discovery_thread(app_map: &Arc<Mutex<AppMap>>) {
         let mut map = app_map_disc.lock().unwrap();
         if map.update_patterns(new_map) {
             log_discovered(&map);
+        }
+    });
+}
+
+struct FocusService {
+    app_map: Arc<Mutex<AppMap>>,
+}
+
+#[interface(name = "org.kde.PlasmaTaskManagerNotifications")]
+impl FocusService {
+    /// Called by the KWin helper whenever an application window gains focus.
+    fn focus_app(&self, desktop_file: &str) {
+        let desktop_file = desktop_file.trim().trim_end_matches(".desktop");
+
+        if desktop_file.is_empty() {
+            return;
+        }
+
+        let desktop_id = format!("application://{desktop_file}.desktop");
+
+        let mut map = self.app_map.lock().unwrap();
+
+        if map.clear_app(&desktop_id) {
+            BadgeEmitter::emit(&desktop_id, 0);
+            info!("focus -> cleared {desktop_id}");
+        }
+    }
+}
+
+fn spawn_focus_dbus_thread(app_map: &Arc<Mutex<AppMap>>) {
+    let app_map_focus = Arc::clone(app_map);
+
+    thread::spawn(move || {
+        let connection = match zbus::blocking::Connection::session() {
+            Ok(connection) => connection,
+            Err(e) => {
+                error!("failed to connect focus service to session D-Bus: {e}");
+                return;
+            }
+        };
+
+        if let Err(e) = connection.request_name("org.kde.PlasmaTaskManagerNotifications") {
+            error!("failed to register focus D-Bus service: {e}");
+            return;
+        }
+
+        let service = FocusService {
+            app_map: app_map_focus,
+        };
+
+        if let Err(e) = connection
+            .object_server()
+            .at("/org/kde/PlasmaTaskManagerNotifications", service)
+        {
+            error!("failed to expose focus D-Bus interface: {e}");
+            return;
+        }
+
+        info!("focus D-Bus service ready");
+
+        // Keep the connection and exported object alive.
+        loop {
+            thread::park();
         }
     });
 }
@@ -118,10 +183,10 @@ fn handle_message(msg: DbusMessage, app_map: &Arc<Mutex<AppMap>>) {
             }
         }
         DbusMessage::NotificationClosed { notification_id } => {
-            if let Some((desktop_id, count)) = map.notification_closed(notification_id) {
-                BadgeEmitter::emit(&desktop_id, count);
-                info!("- [{notification_id}] {desktop_id} (count: {count})");
-            }
+            // Intentionally keep the badge when Plasma closes/expires
+            // the popup. It will be cleared when the application's
+            // window receives focus.
+            info!("notification [{notification_id}] closed; keeping badge until focus");
         }
     }
 }

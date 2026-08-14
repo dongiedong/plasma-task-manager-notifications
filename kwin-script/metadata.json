@@ -1,0 +1,12 @@
+{
+    "KPlugin": {
+        "Name": "Plasma Task Manager Notifications Focus Monitor",
+        "Description": "Reports application focus changes for persistent notification badges",
+        "Id": "plasma-task-manager-notifications-focus",
+        "Version": "0.1.0",
+        "License": "MIT"
+    },
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js",
+    "KPackageStructure": "KWin/Script"
+}
