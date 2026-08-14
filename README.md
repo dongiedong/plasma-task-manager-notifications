@@ -2,6 +2,8 @@
 
 Taskbar badge notifications for KDE Plasma 6. Dynamically discovers running applications via KWin, monitors desktop notifications via D-Bus, and sets badge counts on taskbar icons using the Unity Launcher API.
 
+This project is based on the original [`plasma-task-manager-notifications`](https://git.nmm.ee/asko/plasma-task-manager-notifications) by **Asko Nõmm**. This fork adds persistent notification badges that remain visible until the corresponding application regains focus.
+
 ## How it works
 
 1. **Discovers apps dynamically** by querying KWin via D-Bus — enumerates open windows using `WindowsRunner.Match`, then calls `KWin.getWindowInfo` for each to get the `desktopFile` property. Rediscovers every 30 seconds in a background thread.
@@ -24,7 +26,7 @@ Taskbar badge notifications for KDE Plasma 6. Dynamically discovers running appl
 ## Install
 
 ```bash
-git clone https://git.nmm.ee/asko/plasma-task-manager-notifications.git
+git clone https://github.com/dongiedong/plasma-task-manager-notifications.git
 cd plasma-task-manager-notifications
 make install
 ```
