@@ -37,6 +37,7 @@ fn process_stream(input: &str, map: &mut AppMap) -> Vec<(String, usize)> {
             app_name,
             replaces_id,
             desktop_entry_hint,
+            ..
         } => {
             let hint_ref = desktop_entry_hint.as_deref().unwrap_or("");
             if let Some(desktop_id) = map.match_app(&[&app_name, hint_ref]) {

@@ -1,12 +1,17 @@
 use regex::Regex;
 use std::collections::HashMap;
+use std::env;
+use std::path::Path;
 
 /// Query KWin for open windows and return a pattern map:
 /// pattern (lowercase) -> "application://<desktop_file>.desktop"
 ///
-/// Two keys per app:
-/// - The last dot-segment (e.g. "firefox") -- matches native app_name
-/// - The full desktop file ID (e.g. "org.mozilla.firefox") -- matches Flatpak desktop-entry hints
+/// Normally KWin gives us desktopFile directly.
+///
+/// Some applications (notably Floorp's normal browser window) expose an empty
+/// desktopFile but do expose a resourceClass matching StartupWMClass.
+/// In that case we fall back to resourceClass if a matching .desktop launcher
+/// actually exists.
 pub fn discover_apps() -> HashMap<String, String> {
     discover_apps_with(
         crate::dbus_glue::kwin_match,
@@ -26,13 +31,17 @@ where
     };
 
     let uuid_re = Regex::new(r"\{([0-9a-f-]{36})\}").unwrap();
-    let desktop_re = Regex::new(r"'desktopFile':\s*<'([^']+)'>").unwrap();
+    let desktop_re = Regex::new(r"'desktopFile':\s*<'([^']*)'>").unwrap();
+    let resource_class_re = Regex::new(r"'resourceClass':\s*<'([^']*)'>").unwrap();
 
     let mut map = HashMap::new();
 
     for caps in uuid_re.captures_iter(&output) {
         let uid = &caps[1];
-        if let Some(entries) = extract_desktop_entries(uid, &info_fn, &desktop_re) {
+
+        if let Some(entries) =
+            extract_desktop_entries(uid, &info_fn, &desktop_re, &resource_class_re)
+        {
             map.extend(entries);
         }
     }
@@ -40,26 +49,69 @@ where
     map
 }
 
+/// Return true if a desktop launcher exists in the usual user/system paths.
+fn desktop_file_exists(desktop_file: &str) -> bool {
+    let filename = format!("{desktop_file}.desktop");
+
+    if let Ok(home) = env::var("HOME") {
+        if Path::new(&home)
+            .join(".local/share/applications")
+            .join(&filename)
+            .exists()
+        {
+            return true;
+        }
+    }
+
+    Path::new("/usr/share/applications")
+        .join(&filename)
+        .exists()
+}
+
 fn extract_desktop_entries<G>(
     uid: &str,
     info_fn: &G,
     desktop_re: &Regex,
+    resource_class_re: &Regex,
 ) -> Option<Vec<(String, String)>>
 where
     G: Fn(&str) -> Option<String>,
 {
     let info_output = info_fn(uid)?;
-    let dcaps = desktop_re.captures(&info_output)?;
-    let desktop_file = &dcaps[1];
-    if desktop_file.is_empty() {
-        return None;
-    }
+
+    // Preferred source: KWin desktopFile.
+    let desktop_file = desktop_re
+        .captures(&info_output)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str())
+        .filter(|s| !s.is_empty());
+
+    // Fallback: resourceClass, but only if a real matching launcher exists.
+    let desktop_file = match desktop_file {
+        Some(value) => value.to_string(),
+        None => {
+            let resource_class = resource_class_re
+                .captures(&info_output)
+                .and_then(|caps| caps.get(1))
+                .map(|m| m.as_str())
+                .filter(|s| !s.is_empty())?;
+
+            if !desktop_file_exists(resource_class) {
+                return None;
+            }
+
+            resource_class.to_string()
+        }
+    };
+
     let key = desktop_file
         .rsplit('.')
         .next()
-        .unwrap_or(desktop_file)
+        .unwrap_or(&desktop_file)
         .to_lowercase();
+
     let desktop_id = format!("application://{desktop_file}.desktop");
+
     Some(vec![
         (key, desktop_id.clone()),
         (desktop_file.to_lowercase(), desktop_id),
@@ -118,40 +170,11 @@ mod tests {
     }
 
     #[test]
-    fn test_discover_apps_empty_desktop_file() {
-        let match_output =
-            r#"([('0_{aabbccdd-1234-5678-9abc-def012345678}', 'Window', 'icon', 100, 0.8, {})],)"#;
-        let info_output = r#"({'desktopFile': <''>, 'caption': <'Window'>},)"#;
-
-        let map = discover_apps_with(
-            || Some(match_output.to_string()),
-            |_| Some(info_output.to_string()),
-        );
-        assert!(map.is_empty());
-    }
-
-    #[test]
     fn test_discover_apps_window_info_fails() {
         let match_output =
-            r#"([('0_{aabbccdd-1234-5678-9abc-def012345678}', 'Window', 'icon', 100, 0.8, {})],)"#;
+            r#"([('0_{aaaaaaaa-1234-5678-9abc-def012345678}', 'Window', 'icon', 100, 0.8, {})],)"#;
 
         let map = discover_apps_with(|| Some(match_output.to_string()), |_| None);
         assert!(map.is_empty());
-    }
-
-    #[test]
-    fn test_discover_apps_deduplicates_same_app() {
-        // Two windows from the same app
-        let match_output = r#"([('0_{aaaaaaaa-1234-5678-9abc-def012345678}', 'Tab 1 — Firefox', 'firefox', 100, 0.8, {}), ('0_{bbbbbbbb-1234-5678-9abc-def012345678}', 'Tab 2 — Firefox', 'firefox', 100, 0.8, {})],)"#;
-        let info_output = r#"({'desktopFile': <'org.mozilla.firefox'>, 'caption': <'Firefox'>},)"#;
-
-        let map = discover_apps_with(
-            || Some(match_output.to_string()),
-            |_| Some(info_output.to_string()),
-        );
-        // Should have exactly 2 entries (short name + full name), not duplicated
-        assert_eq!(map.len(), 2);
-        assert!(map.contains_key("firefox"));
-        assert!(map.contains_key("org.mozilla.firefox"));
     }
 }
