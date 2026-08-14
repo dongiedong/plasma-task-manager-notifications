@@ -1,5 +1,7 @@
 use log::{error, info, warn};
-use plasma_task_manager_notifications::{AppMap, BadgeEmitter, DbusMessage, DbusParser};
+use plasma_task_manager_notifications::{
+    AppMap, BadgeEmitter, DbusMessage, DbusParser, FloorpResolver,
+};
 use std::io::BufRead;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -16,12 +18,13 @@ fn main() {
         .init();
 
     let app_map = Arc::new(Mutex::new(AppMap::new()));
+    let floorp = FloorpResolver::discover();
 
     install_signal_handler(&app_map);
     run_initial_discovery(&app_map);
     spawn_discovery_thread(&app_map);
     spawn_focus_dbus_thread(&app_map);
-    run_monitor_loop(&app_map);
+    run_monitor_loop(&app_map, floorp.as_ref());
 }
 
 fn install_signal_handler(app_map: &Arc<Mutex<AppMap>>) {
@@ -119,7 +122,7 @@ fn spawn_focus_dbus_thread(app_map: &Arc<Mutex<AppMap>>) {
     });
 }
 
-fn run_monitor_loop(app_map: &Arc<Mutex<AppMap>>) {
+fn run_monitor_loop(app_map: &Arc<Mutex<AppMap>>, floorp: Option<&FloorpResolver>) {
     let mut monitor = Command::new("dbus-monitor")
         .args(["--session"])
         .stdout(Stdio::piped())
@@ -145,12 +148,12 @@ fn run_monitor_loop(app_map: &Arc<Mutex<AppMap>>) {
         };
 
         if let Some(msg) = parser.feed_line(&line) {
-            handle_message(msg, app_map);
+            handle_message(msg, app_map, floorp);
         }
     }
 
     if let Some(msg) = parser.flush() {
-        handle_message(msg, app_map);
+        handle_message(msg, app_map, floorp);
     }
 
     error!("dbus-monitor exited unexpectedly");
@@ -158,7 +161,7 @@ fn run_monitor_loop(app_map: &Arc<Mutex<AppMap>>) {
     BadgeEmitter::clear_all(&map.all_desktop_ids());
 }
 
-fn handle_message(msg: DbusMessage, app_map: &Arc<Mutex<AppMap>>) {
+fn handle_message(msg: DbusMessage, app_map: &Arc<Mutex<AppMap>>, floorp: Option<&FloorpResolver>) {
     let mut map = app_map.lock().unwrap();
 
     match msg {
@@ -167,9 +170,18 @@ fn handle_message(msg: DbusMessage, app_map: &Arc<Mutex<AppMap>>) {
             app_name,
             replaces_id,
             desktop_entry_hint,
+            summary,
+            body,
         } => {
             let hint_ref = desktop_entry_hint.as_deref().unwrap_or("");
-            if let Some(desktop_id) = map.match_app(&[&app_name, hint_ref]) {
+            let is_floorp =
+                app_name.eq_ignore_ascii_case("firefox") && hint_ref.eq_ignore_ascii_case("floorp");
+            let desktop_id = if is_floorp {
+                floorp.and_then(|resolver| resolver.resolve(&summary, &body))
+            } else {
+                map.match_app(&[&app_name, hint_ref])
+            };
+            if let Some(desktop_id) = desktop_id {
                 map.record_notify(serial, replaces_id, &desktop_id);
             }
         }

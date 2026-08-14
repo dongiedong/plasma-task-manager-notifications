@@ -94,6 +94,7 @@ Notification badges remain visible after Plasma's notification popup expires or 
 
 ## Known limitations
 
+- Web notification resolution to individual PWA taskbar icons currently supports **Floorp PWAs only**. Native applications remain supported independently. PWAs installed through Firefox, Chrome, Chromium, Brave, Edge, or other browsers are not currently resolved to their individual taskbar icons.
 - Processes all session bus traffic (unfiltered monitor). Lightweight in practice but could theoretically be optimized with `BecomeMonitor` D-Bus API.
 - Only badges apps that currently have an open window. Pinned taskbar icons without a running instance won't be badged.
 - If two apps share the same last dot-segment in their desktop file ID, they would collide in the match map. Unlikely in practice.

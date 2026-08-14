@@ -10,6 +10,8 @@ pub enum DbusMessage {
         app_name: String,
         replaces_id: u32,
         desktop_entry_hint: Option<String>,
+        summary: String,
+        body: String,
     },
     /// A method return matching a pending Notify serial.
     /// Fields: reply_serial, notification_id
@@ -166,11 +168,15 @@ impl DbusParser {
             Some(MsgType::Notify) if !self.strings.is_empty() => {
                 let app_name = self.strings[0].clone();
                 let replaces_id = self.uint32s.first().copied().unwrap_or(0);
+                let summary = self.strings.get(2).cloned().unwrap_or_default();
+                let body = self.strings.get(3).cloned().unwrap_or_default();
                 Some(DbusMessage::Notify {
                     serial: self.serial,
                     app_name,
                     replaces_id,
                     desktop_entry_hint: self.desktop_entry_hint.clone(),
+                    summary,
+                    body,
                 })
             }
             Some(MsgType::Reply) => {
@@ -249,6 +255,8 @@ mod tests {
                 app_name: "firefox".into(),
                 replaces_id: 0,
                 desktop_entry_hint: None,
+                summary: "New message".into(),
+                body: "You have a new message".into(),
             }
         );
 
@@ -275,6 +283,8 @@ mod tests {
                 app_name: "System Notifications".into(),
                 replaces_id: 0,
                 desktop_entry_hint: Some("com.slack.Slack".into()),
+                summary: "New message".into(),
+                body: "body".into(),
             }
         );
     }
